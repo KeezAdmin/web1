@@ -1,0 +1,52 @@
+pipeline{
+  agent any
+  
+  tools{
+    maven "maven3.8.4"
+  }
+  stages{
+    stage('GitClone'){
+      steps{
+        echo "cloning the lastest applications version"
+        git "https://github.com/chidennis/web"
+      }
+    }
+      stage('Test+Build'){
+      steps{
+        sh "echo Running unitTesting"
+        sh "mvn clean package"
+        echo "echo test successful and backupArtifacts created"
+      }
+    }
+      stage('predeployment'){
+      steps{
+        withCredentials([string(credentialsId: 'DOKCER_HUB_PASSWORD', variable: 'DOKCER_HUB_PASSWORD')]) {
+        sh "docker login -u dennislandmark25 -p ${DOKCER_HUB_PASSWORD}"
+        sh "echo creating docker image"
+        sh "docker build -t dennislandmark25/nginx . "
+        sh "docker push dennislandmark25/nginx"
+        }
+      }
+    }
+ 
+    
+    stage('Approval'){
+      steps{
+        timeout(time:5, unit:'DAYS'){
+ 			    input message: 'Approval for production'
+          }
+      }
+     
+    }
+    
+    
+      
+    stage('K8S Deploy'){
+      steps{
+        sh 'kubectl apply -f nginx-pod.yaml'
+      }
+    }
+    
+  
+}
+}
